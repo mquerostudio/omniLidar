@@ -14,8 +14,8 @@
 
 #define IRQ_PIN 15
 #define XSHUT_PIN 13
-#define TIMINGLIDAR 20  // Valid timing budgets: 15, 20, 33, 50, 100, 200 and 500ms!
-#define MAXDISTANCE 2000
+/**/#define TIMINGLIDAR 20  // Valid timing budgets: 15, 20, 33, 50, 100, 200 and 500ms!
+/**/#define MAXDISTANCE 2000
 
 #define PSVOLTAGE 12  //Voltage nominal
 #define PIDVELP 0.05
@@ -26,14 +26,14 @@
 #define MOTORVELLIMIT 20
 #define INITIALMOTPOST 0.0
 
-#define NUMMEASPERREV 4
-#define OFFSET ((2 * PI) / NUMMEASPERREV)
-#define TIMEOFREV 2000  // millisSEG
-#define TIMEBEWOFF (TIMEOFREV / NUMMEASPERREV)
-#define MOTORPOSTOL 0.5
+/**/#define NUMMEASPERREV 4
+/**/#define OFFSET ((2 * PI) / NUMMEASPERREV)
+/**/#define TIMEOFREV 2000  // millisSEG
+/**/#define TIMEBEWOFF (TIMEOFREV / NUMMEASPERREV)
 
-#define CANVASWIDTHHEIGHT 900
-#define CANVASNORMALIZE (CANVASWIDTHHEIGHT / (2 * MAXDISTANCE))
+#define CANVASWIDTH 900
+#define CANVASHEIGHT CANVASWIDTH
+#define CANVASNORMALIZE (CANVASWIDTH / (2 * MAXDISTANCE))
 
 
 TwoWire I2Cone = TwoWire(0);
@@ -75,7 +75,7 @@ void sendData();
 String generateHTML() {
   String html = "<html><head><style>body{font-family: Arial, Helvetica, sans-serif;}</style></head><body>";
   html += "<h1>Lidar Measurement</h1>";
-  html += "<canvas id='graphCanvas' width='" + String(CANVASWIDTHHEIGHT) + "' height='" + String(CANVASWIDTHHEIGHT) + "'></canvas>";
+  html += "<canvas id='graphCanvas' width='" + String(CANVASWIDTH) + "' height='" + String(CANVASWIDTH) + "'></canvas>";
   html += "<script>";
   html += "var canvas = document.getElementById('graphCanvas');";
   html += "var ctx = canvas.getContext('2d');";

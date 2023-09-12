@@ -34,13 +34,7 @@ std::vector<std::vector<float>> coordsCartesian;
 int toPutLidarMaxDist, toPutlidarMeasperRev, toPutlidarTimeofRev, toPutlidarMeasTime;
 bool isPutNewValues = false, isStarted = false;
 
-/*
- * 0 --> First Run - Motor Homing
- * 1 --> Normal Operation
- * 2 --> Send Data
- * 3 --> Stop Motor
- */
-uint8_t state = 0;
+enum_state state = MOTORHOMING;
 
 uint16_t niteration = 0;
 unsigned long previousUpdateTime = 0;
@@ -294,8 +288,9 @@ void setup()
   /*
    * Init main program
    */
-  Serial.println(F("State 0 - First Run Detected"));
-  Serial.println(F("Motor - Homing"));
+  Serial.println(F("State " + state));
+
+  delay(60000);
 }
 
 void loop()
@@ -308,55 +303,40 @@ void loop()
 
   switch (state)
   {
-  case 0:
+  case MOTORHOMING:
     motorHoming();
     break;
-  case 1:
+  case CHANGESETTINGS:
+    changeSettings();
+    break;
+  case MEASDATA:
     normalOperation();
     break;
-  case 2:
-    // sendData();
+  case SENDDATA:
+    sendData();
     break;
-  case 3:
-    // stopMotor();
-    break;
-
   default:
     break;
   }
-
-  // static unsigned long lastTime = 0;
-  // if (millis() - lastTime > 1000)
-  // {
-  //   lastTime = millis();
-
-  //   float n = 0.0;
-  //   String dataToSend = "";
-  //   for (int i = 0; i < maxPoints; i++)
-  //   {
-  //     points[i][0] = random(0, toPutLidarMaxDistance);    // Distance
-  //     points[i][1] = n;                                   // angle
-  //     pointsMod[i][0] = points[i][0] * cos(points[i][1]); // x points
-  //     pointsMod[i][1] = points[i][0] * sin(points[i][1]); // y points
-
-  //     if (i > 0)
-  //     {
-  //       dataToSend += "|";
-  //     }
-  //     dataToSend += String(points[i][0]) + "," + String(points[i][1]);
-  //     n = n + (2 * PI / maxPoints);
-  //   }
-  //   webSocket.broadcastTXT(dataToSend);
-  // }
 }
 
 void motorHoming()
 {
+  motorPosition = INITIALMOTPOST;
   if (AS5600sensor.getAngle() < (INITIALMOTPOST + 0.02) || AS5600sensor.getAngle() < fabs(INITIALMOTPOST - 0.02))
   {
     Serial.println(F("Motor - Home Position"));
-    state = 1;
-    Serial.println(F("State 1 - Normal Operation"));
+    state = CHANGESETTINGS;
+    Serial.println(F("State " + state));
+  }
+}
+
+void changeSettings()
+{
+  if (isStarted)
+  {
+    state = MEASDATA;
+    Serial.println(F("State " + state));
   }
 }
 
@@ -376,18 +356,41 @@ void normalOperation()
     Serial.println(" mm");
 
     coordsPolar[niteration][0] = distance;
-    coordsPolar[niteration][1] = AS5600sensor.getAngle();
+    coordsPolar[niteration][1] = AS5600sensor.getMechanicalAngle();
 
     if (niteration == (lidarMeasperRev - 1))
     {
       Serial.println(F("Data - Data ready"));
-      state = 2;
-      Serial.println(F("State 2 - Send Data"));
+      state = SENDDATA;
+      Serial.println(F("State " + state));
       niteration = 0;
     }
     else
     {
       niteration += 1;
     }
+  }
+}
+
+void sendData()
+{
+  String dataToSend = "";
+
+  for (int i = 0; i < lidarMeasperRev; i++)
+  {
+    dataToSend += String(coordsPolar[i][0]) + "," + String(coordsPolar[i][1]);
+    if (i > 0)
+      dataToSend += "|";
+  }
+  if (!webSocket.broadcastTXT(dataToSend))
+  {
+    Serial.println("Error Sending Data to web");
+  }
+  else if (isStarted)
+  {
+    state = MEASDATA;
+    Serial.println(F("State " + state));
+  } else{
+    state = CHANGESETTINGS;
   }
 }

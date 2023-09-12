@@ -1,25 +1,25 @@
 #define SERIALVEL 115200
 
 /* I2C PINS
-* I2C0 --> VL53L1X
-* I2C1 --> AS5600
-*/
+ * I2C0 --> VL53L1X
+ * I2C1 --> AS5600
+ */
 #define SDA0 19
 #define SCL0 18
 #define SDA1 23
 #define SCL1 5
 #define I2CSPEED 400000u
 
-/* 
-* VL53L1X Pins
-*/
+/*
+ * VL53L1X Pins
+ */
 #define IRQ_PIN 15
 #define XSHUT_PIN 13
 
 /*
-* MOTOR PARAMETERS
-*/
-#define PSVOLTAGE 14.8f //nominal voltage of the battery
+ * MOTOR PARAMETERS
+ */
+#define PSVOLTAGE 14.8f // nominal voltage of the battery
 #define MOTORVOLLIMIT 17
 #define MOTORVELLIMIT 20
 #define PIDVELP 0.05f
@@ -29,12 +29,12 @@
 #define INITIALMOTPOST 0.0f
 
 /*
-* Defaults Values
-*/
-#define DEFLIDARMAXDIST 2000 // Max meas distance of the sensor
-#define DEFLIDARMEASPERREV 10 // Number Meas of each revolution
+ * Defaults Values
+ */
+#define DEFLIDARMAXDIST 2000   // Max meas distance of the sensor
+#define DEFLIDARMEASPERREV 10  // Number Meas of each revolution
 #define DEFLIDARTIMEOFREV 2000 // in ms
-#define DEFLIDARMEASTIME 50 // Valid timing budgets: 15, 20, 33, 50, 100, 200 and 500ms
+#define DEFLIDARMEASTIME 50    // Valid timing budgets: 15, 20, 33, 50, 100, 200 and 500ms
 
 /*
  * Web Server Parameters
@@ -43,11 +43,25 @@ const char *host = "omnilidar";
 const char *ssid = "TP-LINK_26619E";
 const char *password = "18670691";
 
+/*
+ * 0 --> Motor Homing
+ * 1 --> Change Settings
+ * 2 --> Meas
+ * 3 --> Send Data
+ */
+enum enum_state
+{
+  MOTORHOMING,
+  CHANGESETTINGS,
+  MEASDATA,
+  SENDDATA
+};
+
 void motorHoming();
 void normalOperation();
 void sendData();
 void stopMotor();
-
+void changeSettings();
 
 const char *htmlContent = R"(
 <!DOCTYPE html>

@@ -92,6 +92,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
       Serial.print("Meas Num per Revolution: ");
       Serial.println(toPutlidarMeasperRev);
 
+      isPutNewValues = true;
+
       // Send updated lidarMaxDistance to frontend
       String lidarMaxDistanceUpdate = "lidarMaxDistanceUpdate:" + String(toPutLidarMaxDist);
       webSocket.broadcastTXT(lidarMaxDistanceUpdate.c_str());
@@ -337,6 +339,22 @@ void changeSettings()
   {
     state = MEASDATA;
     Serial.println(F("State " + state));
+  } else if(isPutNewValues){
+
+    if(toPutLidarMaxDist != lidarMaxDist){
+      lidarMaxDist = toPutLidarMaxDist;
+    }
+    if(toPutlidarMeasperRev != lidarMeasperRev){
+      lidarMeasperRev = toPutlidarMeasperRev;
+    }
+    if(toPutlidarTimeofRev != lidarTimeofRev){
+      lidarTimeofRev = toPutlidarTimeofRev;
+    }
+    if(toPutlidarMeasTime != lidarMeasTime){
+      lidarMeasTime = toPutlidarMeasTime;
+    }
+
+    isPutNewValues = false;
   }
 }
 

@@ -1,8 +1,8 @@
 #define SERIALVEL 115200
 
 /* I2C PINS
- * I2C0 --> VL53L1X
- * I2C1 --> AS5600
+ * I2C0 --> AS5600
+ * I2C1 --> VL53L1X
  */
 #define SDA0 19
 #define SCL0 18
@@ -13,8 +13,8 @@
 /*
  * VL53L1X Pins
  */
-#define IRQ_PIN 15
-#define XSHUT_PIN 13
+#define IRQ_PIN 13
+#define XSHUT_PIN 15
 
 /*
  * MOTOR PARAMETERS
@@ -29,12 +29,15 @@
 #define INITIALMOTPOST 0.0f
 
 /*
- * Defaults Values
+ * Sistem Values
  */
-#define DEFLIDARMAXDIST 2000   // Max meas distance of the sensor
-#define DEFLIDARMEASPERREV 10  // Number Meas of each revolution
+#define DEFLIDARMAXDIST 1500   // Max meas distance of the sensor
+#define DEFLIDARMEASPERREV 4 // Number Meas of each revolution
 #define DEFLIDARTIMEOFREV 2000 // in ms
-#define DEFLIDARMEASTIME 50    // Valid timing budgets: 15, 20, 33, 50, 100, 200 and 500ms
+#define DEFLIDARMEASTIME 33    // Valid timing budgets: 15, 20, 33, 50, 100, 200 and 500ms
+#define SMALLPULLEYTEETH 59
+#define BIGPULLEYTEETH 97
+#define PULLEYREL 1.6
 
 /*
  * Web Server Parameters
@@ -77,7 +80,7 @@ const char *htmlContent = R"(
           font-size: 40px;
         }
         body {
-            background-color: #FFD700;
+            background-color: #ff9933;
             font-family: Arial, sans-serif;
             margin: 0;
             display: flex;
@@ -210,22 +213,22 @@ const char *htmlContent = R"(
         <div class="container">
             <div>
                 <label class="label" for="lidarTime">Lidar - Time of measure [ms]:</label>
-                <input class="input" type="number" id="lidarTime" name="lidarTime">
+                <input class="input" type="number" id="lidarTime" name="lidarTime" value="0">
             </div>
 
             <div>
                 <label class="label" for="measTimePerRev [ms]">Meas - Time of Revolution:</label>
-                <input class="input" type="number" id="measTimePerRev" name="measTimePerRev">
+                <input class="input" type="number" id="measTimePerRev" name="measTimePerRev" value="0">
             </div>
         </div>
         <div class="container">
             <div>
                 <label class="label" for="lidarMaxDistance">Lidar - Max meas distance [ms]:</label>
-                <input class="input" type="number" id="lidarMaxDistance" name="lidarMaxDistance">
+                <input class="input" type="number" id="lidarMaxDistance" name="lidarMaxDistance" value="0">
             </div>
             <div>
                 <label class="label" for="measNumPerRev">Meas - Num per revolution:</label>
-                <input class="input" type="number" id="measNumPerRev" name="measNumPerRev">
+                <input class="input" type="number" id="measNumPerRev" name="measNumPerRev" value="0">
             </div>
         </div>
         <button type="button" class="center-button start-button" id="startBtn">Start</button>
@@ -287,7 +290,7 @@ const char *htmlContent = R"(
 
             // Draw circles representing radians
             ctx.strokeStyle = 'gray';
-            var distanceBetweenCircles = lidarMaxDistance / 5;
+            var distanceBetweenCircles = (lidarMaxDistance+100) / 5;
             var textdistance = 0;
             for (var i = 1; i <= 5; i++) {
                 ctx.beginPath();
@@ -323,7 +326,7 @@ const char *htmlContent = R"(
                 const y = (points[i][0] * Math.sin(points[i][1])) * scaleFactor + canvas.height / 2;
 
                 ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 5 * Math.PI); 
+                ctx.arc(x, y, 5, 0, 3 * Math.PI); 
                 ctx.fillStyle = 'red'; 
                 ctx.fill();
                 appendToTerminal(`Dis: ${points[i][0].toFixed(2)}, Ang: ${points[i][1].toFixed(2)}`);
@@ -331,14 +334,24 @@ const char *htmlContent = R"(
         }
 
         var socket = new WebSocket('ws://' + location.hostname + ':81/');
+        var accumulatedData = [];
         socket.onmessage = function(event) {
-            const data = event.data;
-            
-            if (data.startsWith("lidarMaxDistanceUpdate:")) {
+            const data = event.data;  
+            if (data.startsWith("data:")) {
+                // Accumulate data chunks
+                accumulatedData.push(...data.substring(5).split("|").map(str => {
+                const coords = str.split(",");
+                return [parseFloat(coords[0]), parseFloat(coords[1])];
+                }));
+            } else if (data === "end") {
+                // All data chunks received, process the full vector
+                drawPoints(accumulatedData);
+                accumulatedData = [];
+            } else if (data.startsWith("lidarMaxDistanceUpdate:")) {
                 // Extract and update the lidarMaxDistance
                 lidarMaxDistance = parseInt(data.split(":")[1], 10);
                 drawTemplate();  // Redraw the template with updated value
-            } else if (data === "isStopped") { // if isStopped is true
+            } else if (data === "isStopped") {
                 document.querySelector(".center-button[type='submit']").disabled = false;
                 document.querySelector(".stop-button[type='button']").disabled = true;
                 document.querySelector(".start-button[type='button']").disabled = false;
@@ -346,16 +359,8 @@ const char *htmlContent = R"(
                 document.querySelector(".center-button[type='submit']").disabled = true;
                 document.querySelector(".stop-button[type='button']").disabled = false;
                 document.querySelector(".start-button[type='button']").disabled = true;
-                
-            } else if (data !== "noCommand") {
-                const pointStrings = data.split("|");
-                const pointArray = pointStrings.map(str => {
-                  const coords = str.split(",");
-                  return [parseFloat(coords[0]), parseFloat(coords[1])];
-                });
-                drawPoints(pointArray);
             }
-        }
+        };
 
         document.getElementById('startBtn').addEventListener('click', function() {
             socket.send('start');

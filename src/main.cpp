@@ -33,6 +33,7 @@ std::vector<std::vector<float>> coordsCartesian;
 // Variables to store the value from webserver
 int toPutLidarMaxDist, toPutlidarMeasperRev, toPutlidarTimeofRev, toPutlidarMeasTime;
 bool isPutNewValues = false, isStarted = false;
+int nRotation = 0;
 
 enum_state state = MOTORHOMING;
 
@@ -41,8 +42,8 @@ unsigned long previousUpdateTime = 0;
 /*********************************************/
 
 /*  I2C Objects Declaration  */
-TwoWire I2CZero = TwoWire(0);
-TwoWire I2COne = TwoWire(1);
+TwoWire I2CZero = TwoWire(0); // Lidar Sensor
+TwoWire I2COne = TwoWire(1);  // Motor
 
 /*  VL53L1X Object Declaration  */
 VL53L1X VL53L1Xsensor;
@@ -51,6 +52,23 @@ VL53L1X VL53L1Xsensor;
 MagneticSensorI2C AS5600sensor = MagneticSensorI2C(AS5600_I2C); // Encoder of the motor
 BLDCMotor motor = BLDCMotor(7);                                 // Number of poles
 BLDCDriver3PWM motorDriver = BLDCDriver3PWM(26, 27, 14, 12);
+
+const char *stateToString(enum_state state)
+{
+  switch (state)
+  {
+  case MOTORHOMING:
+    return "MOTORHOMING";
+  case CHANGESETTINGS:
+    return "CHANGESETTINGS";
+  case MEASDATA:
+    return "MEASDATA";
+  case SENDDATA:
+    return "SENDDATA";
+  default:
+    return "UNKNOWN";
+  }
+}
 
 void handleRoot()
 {
@@ -223,7 +241,7 @@ void setup()
   /*
    * Motor Setups
    */
-  AS5600sensor.init(&I2COne);
+  AS5600sensor.init(&I2CZero);
   Serial.println(F("Motor - Encoder initiated."));
   motor.linkSensor(&AS5600sensor);
   Serial.println(F("Motor - Encoder linked to motor."));
@@ -275,8 +293,9 @@ void setup()
   delay(10); // Wait for a short duration before enabling the sensor
   digitalWrite(XSHUT_PIN, HIGH);
   delay(10); // Wait for sensor to power up
+  Serial.println(F("VL53L1X - Interrupt and shut pins configured"));
 
-  VL53L1Xsensor.setBus(&I2CZero);
+  VL53L1Xsensor.setBus(&I2COne);
   // Initialize the VL53L1X sensor
   if (!VL53L1Xsensor.init())
   {
@@ -286,13 +305,17 @@ void setup()
   }
   // Start continuous measurements
   VL53L1Xsensor.startContinuous(lidarMeasTime);
+  Serial.print(F("VL53L1X - Continuous Time:"));
+  Serial.println(lidarMeasTime);
 
   /*
    * Init main program
    */
-  Serial.println(F("State " + state));
+  Serial.print(F("State: "));
+  Serial.println(stateToString(state));
 
-  delay(60000);
+  coordsPolar.reserve(100);
+  coordsCartesian.reserve(100);
 }
 
 void loop()
@@ -329,32 +352,41 @@ void motorHoming()
   {
     Serial.println(F("Motor - Home Position"));
     state = CHANGESETTINGS;
-    Serial.println(F("State " + state));
+    Serial.print(F("State: "));
+    Serial.println(stateToString(state));
   }
 }
 
 void changeSettings()
 {
+  if (isPutNewValues)
+  {
+    if (toPutLidarMaxDist != lidarMaxDist && toPutLidarMaxDist != 0)
+    {
+      lidarMaxDist = toPutLidarMaxDist;
+    }
+    if (toPutlidarMeasperRev != lidarMeasperRev && toPutlidarMeasperRev != 0)
+    {
+      lidarMeasperRev = toPutlidarMeasperRev;
+    }
+    if (toPutlidarTimeofRev != lidarTimeofRev && toPutlidarTimeofRev != 0)
+    {
+      lidarTimeofRev = toPutlidarTimeofRev;
+    }
+    if (toPutlidarMeasTime != lidarMeasTime && toPutlidarMeasTime != 0)
+    {
+      lidarMeasTime = toPutlidarMeasTime;
+    }
+    isPutNewValues = false;
+    Serial.println(F("New Data saved"));
+    lidarOffsetbwMeas = (2 * PI) / lidarMeasperRev;
+    lidarTimeofMeas = lidarTimeofRev / lidarMeasperRev;
+  }
   if (isStarted)
   {
     state = MEASDATA;
-    Serial.println(F("State " + state));
-  } else if(isPutNewValues){
-
-    if(toPutLidarMaxDist != lidarMaxDist){
-      lidarMaxDist = toPutLidarMaxDist;
-    }
-    if(toPutlidarMeasperRev != lidarMeasperRev){
-      lidarMeasperRev = toPutlidarMeasperRev;
-    }
-    if(toPutlidarTimeofRev != lidarTimeofRev){
-      lidarTimeofRev = toPutlidarTimeofRev;
-    }
-    if(toPutlidarMeasTime != lidarMeasTime){
-      lidarMeasTime = toPutlidarMeasTime;
-    }
-
-    isPutNewValues = false;
+    Serial.print(F("State: "));
+    Serial.println(stateToString(state));
   }
 }
 
@@ -363,7 +395,8 @@ void normalOperation()
   if ((millis() - previousUpdateTime) > lidarTimeofMeas)
   {
     previousUpdateTime = millis();
-    motorPosition += lidarOffsetbwMeas;
+
+    if((motorPosition/PULLEYREL)/(nRotation+1) >= 2*PI) nRotation++;
 
     Serial.print(F("Numero de iteracion: "));
     Serial.println(niteration);
@@ -373,14 +406,30 @@ void normalOperation()
     Serial.print(distance);
     Serial.println(" mm");
 
-    coordsPolar[niteration][0] = distance;
-    coordsPolar[niteration][1] = AS5600sensor.getMechanicalAngle();
+    motorPosition += (PULLEYREL * lidarOffsetbwMeas);
+
+    std::vector<float> currentData(2);
+    if(distance > DEFLIDARMAXDIST) distance = DEFLIDARMAXDIST;    currentData[0] = static_cast<float>(distance);
+    currentData[1] = (motorPosition/PULLEYREL) - 2*PI*nRotation;
+
+    // Check if niteration is within bounds
+    if (niteration < coordsPolar.size())
+    {
+      // If the entry exists, update it
+      coordsPolar[niteration] = currentData;
+    }
+    else
+    {
+      // If the entry doesn't exist, add it
+      coordsPolar.push_back(currentData);
+    }
 
     if (niteration == (lidarMeasperRev - 1))
     {
       Serial.println(F("Data - Data ready"));
       state = SENDDATA;
-      Serial.println(F("State " + state));
+      Serial.print(F("State: "));
+      Serial.println(stateToString(state));
       niteration = 0;
     }
     else
@@ -390,25 +439,69 @@ void normalOperation()
   }
 }
 
+// void sendData()
+// {
+//   String dataToSend = "";
+
+//   for (int i = 0; i < lidarMeasperRev; i++)
+//   {
+//     dataToSend += String(coordsPolar[i][0]) + "," + String(coordsPolar[i][1]);
+//     if (i > 0)
+//       dataToSend += "|";
+//   }
+//   if (!webSocket.broadcastTXT(dataToSend))
+//   {
+//     Serial.println("Error Sending Data to web");
+//   }
+//   if (isStarted)
+//   {
+//     state = MEASDATA;
+//     Serial.print(F("State: "));
+//     Serial.println(stateToString(state));
+//   }
+//   else
+//   {
+//     state = CHANGESETTINGS;
+//     Serial.print(F("State: "));
+//     Serial.println(stateToString(state));
+//   }
+// }
+
 void sendData()
 {
-  String dataToSend = "";
+  const int chunkSize = 10;  // Number of data points to send in each WebSocket message
+  int totalChunks = (lidarMeasperRev + chunkSize - 1) / chunkSize;
 
-  for (int i = 0; i < lidarMeasperRev; i++)
+  for (int chunk = 0; chunk < totalChunks; ++chunk)
   {
-    dataToSend += String(coordsPolar[i][0]) + "," + String(coordsPolar[i][1]);
-    if (i > 0)
-      dataToSend += "|";
+    String dataToSend = "data:";
+    int startIdx = chunk * chunkSize;
+    int endIdx = min(startIdx + chunkSize, lidarMeasperRev);
+
+    for (int i = startIdx; i < endIdx; ++i)
+    {
+      dataToSend += String(coordsPolar[i][0]) + "," + String(coordsPolar[i][1]);
+      if (i < endIdx - 1)
+        dataToSend += "|";
+    }
+    if (!webSocket.broadcastTXT(dataToSend))
+    {
+      Serial.println("Error Sending Data to web");
+    }
   }
-  if (!webSocket.broadcastTXT(dataToSend))
-  {
-    Serial.println("Error Sending Data to web");
-  }
-  else if (isStarted)
+
+  webSocket.broadcastTXT("end");
+
+  if (isStarted)
   {
     state = MEASDATA;
-    Serial.println(F("State " + state));
-  } else{
+    Serial.print(F("State: "));
+    Serial.println(stateToString(state));
+  }
+  else
+  {
     state = CHANGESETTINGS;
+    Serial.print(F("State: "));
+    Serial.println(stateToString(state));
   }
 }

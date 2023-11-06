@@ -31,20 +31,20 @@
 /*
  * Sistem Values
  */
-#define DEFLIDARMAXDIST 1500   // Max meas distance of the sensor
-#define DEFLIDARMEASPERREV 4 // Number Meas of each revolution
-#define DEFLIDARTIMEOFREV 2000 // in ms
-#define DEFLIDARMEASTIME 33    // Valid timing budgets: 15, 20, 33, 50, 100, 200 and 500ms
+#define DEFLIDARMAXDIST 500   // Max meas distance of the sensor
+#define DEFLIDARMEASPERREV 50 // Number Meas of each revolution
+#define DEFLIDARTIMEOFREV 4000 // in ms
+#define DEFLIDARMEASTIME 20    // Valid timing budgets: 15, 20, 33, 50, 100, 200 and 500ms
 #define SMALLPULLEYTEETH 59
 #define BIGPULLEYTEETH 97
-#define PULLEYREL 1.6
+#define PULLEYREL 1.55
 
 /*
  * Web Server Parameters
  */
 const char *host = "omnilidar";
-const char *ssid = "TP-LINK_26619E";
-const char *password = "18670691";
+const char *ssid = "*********************";
+const char *password = "*********************";
 
 /*
  * 0 --> Motor Homing
@@ -76,8 +76,9 @@ const char *htmlContent = R"(
     <title>omniLidar Web Control</title>
     <style>
         h1 {
-          color: green;
-          font-size: 40px;
+          color: #2eb82e;
+          font-size: 50px;
+            -webkit-text-stroke: 0.5px black; /* This will add a black border around each letter */
         }
         body {
             background-color: #ff9933;
@@ -217,13 +218,13 @@ const char *htmlContent = R"(
             </div>
 
             <div>
-                <label class="label" for="measTimePerRev [ms]">Meas - Time of Revolution:</label>
+                <label class="label" for="measTimePerRev [ms]">Meas - Time of Revolution [mm]:</label>
                 <input class="input" type="number" id="measTimePerRev" name="measTimePerRev" value="0">
             </div>
         </div>
         <div class="container">
             <div>
-                <label class="label" for="lidarMaxDistance">Lidar - Max meas distance [ms]:</label>
+                <label class="label" for="lidarMaxDistance">Lidar - Max meas distance [mm]:</label>
                 <input class="input" type="number" id="lidarMaxDistance" name="lidarMaxDistance" value="0">
             </div>
             <div>
@@ -290,7 +291,7 @@ const char *htmlContent = R"(
 
             // Draw circles representing radians
             ctx.strokeStyle = 'gray';
-            var distanceBetweenCircles = (lidarMaxDistance+100) / 5;
+            var distanceBetweenCircles = (lidarMaxDistance) / 5;
             var textdistance = 0;
             for (var i = 1; i <= 5; i++) {
                 ctx.beginPath();
@@ -322,8 +323,8 @@ const char *htmlContent = R"(
 
             appendToTerminal("New Data:");
             for(let i = 0; i < points.length; i++) {
-                const x = (points[i][0] * Math.cos(points[i][1])) * scaleFactor + canvas.width / 2; 
-                const y = (points[i][0] * Math.sin(points[i][1])) * scaleFactor + canvas.height / 2;
+                const x = (points[i][0] * -Math.cos(points[i][1])) * scaleFactor + canvas.width / 2; 
+                const y = (points[i][0] * -Math.sin(points[i][1])) * scaleFactor + canvas.height / 2;
 
                 ctx.beginPath();
                 ctx.arc(x, y, 5, 0, 3 * Math.PI); 

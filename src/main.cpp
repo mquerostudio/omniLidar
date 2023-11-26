@@ -439,34 +439,6 @@ void normalOperation()
   }
 }
 
-// void sendData()
-// {
-//   String dataToSend = "";
-
-//   for (int i = 0; i < lidarMeasperRev; i++)
-//   {
-//     dataToSend += String(coordsPolar[i][0]) + "," + String(coordsPolar[i][1]);
-//     if (i > 0)
-//       dataToSend += "|";
-//   }
-//   if (!webSocket.broadcastTXT(dataToSend))
-//   {
-//     Serial.println("Error Sending Data to web");
-//   }
-//   if (isStarted)
-//   {
-//     state = MEASDATA;
-//     Serial.print(F("State: "));
-//     Serial.println(stateToString(state));
-//   }
-//   else
-//   {
-//     state = CHANGESETTINGS;
-//     Serial.print(F("State: "));
-//     Serial.println(stateToString(state));
-//   }
-// }
-
 void sendData()
 {
   const int chunkSize = 10;  // Number of data points to send in each WebSocket message

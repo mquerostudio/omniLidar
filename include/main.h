@@ -218,7 +218,7 @@ const char *htmlContent = R"(
             </div>
 
             <div>
-                <label class="label" for="measTimePerRev [ms]">Meas - Time of Revolution [mm]:</label>
+                <label class="label" for="measTimePerRev">Meas - Time of Revolution [ms]:</label>
                 <input class="input" type="number" id="measTimePerRev" name="measTimePerRev" value="0">
             </div>
         </div>
